@@ -212,7 +212,14 @@ namespace pseudo_ns {
 struct Var {
     std::string name, type, cmt;
     bool used;
-    Var() : used(false) {}
+    int nuse;                     // textual references (incl. the self-mark from setReg)
+    int defLine;                  // records index of the load assignment (vtable folding)
+    bool fromLoad;
+    std::string loadGlyph, addrExpr, prevText;
+    int baseVn;
+    int prevDefLine;
+    long long loadOff;
+    Var() : used(false), nuse(0), defLine(-1), fromLoad(false), baseVn(-1), prevDefLine(-1), loadOff(0) {}
 };
 
 struct RS {
@@ -502,7 +509,13 @@ struct PGen {
     std::string rawRegTxt(int r) { return ::rawRegTxt(r, anyX); }
 
     void markUsed(int vn) {
-        if (vn >= 0 && vn < (int)vars.size()) vars[vn].used = true;
+        if (vn >= 0 && vn < (int)vars.size()) { vars[vn].used = true; vars[vn].nuse++; }
+    }
+
+    // locate a variable by its rendered name (vtable folding)
+    int vnOfName(const std::string &nm) {
+        for (int i = (int)vars.size() - 1; i >= 0; i--) if (vars[i].name == nm) return i;
+        return -1;
     }
 
     std::string varName(int r) {
@@ -527,7 +540,7 @@ struct PGen {
         s.hasP = false;
         assignEver[r] = true;
         s.txt = varName(r);
-        markUsed(s.vn);
+        if (s.vn >= 0 && s.vn < (int)vars.size()) vars[s.vn].used = true;   // def keeps the decl, not a use
     }
 
     int slotVar(long long key, const char *ty) {
@@ -721,22 +734,100 @@ struct PGen {
 
     void emitCall(int ii, const Insn &n, const std::vector<std::string> &t, int ind, std::vector<std::string> &out, bool indirect) {
         std::string nm;
+        bool folded = false, castOnly = false;
+        std::string foldAddr;
+        int foldVn = -1, foldBase = -1;
         if (indirect) {
             if (!t.empty()) {
                 Opd a = parseOpd(t[0]);
                 if (a.reg >= 0) {
                     RS &s = rs[a.reg];
                     if (s.hasP) { nm = s.pName; }
-                    else if (!s.txt.empty()) { nm = s.txt; markUsed(s.vn); }
+                    else if (!s.txt.empty()) {
+                        int vn = vnOfName(s.txt);
+                        bool canFold = (vn >= 0 && vars[vn].fromLoad && vars[vn].nuse == 0);
+                        castOnly = (!canFold && vn >= 0 && vars[vn].fromLoad);
+                        if (canFold) {
+                            Var &V = vars[vn];
+                            if (V.baseVn == vn && !V.prevText.empty()) {
+                                // same register reused: previous value was the deref of the earlier load
+                                foldAddr = V.prevText + " + " + constOfs(V.loadOff);
+                            } else if (V.baseVn >= 0 && V.baseVn != vn && vars[V.baseVn].fromLoad && vars[V.baseVn].nuse <= 1) {
+                                Var &B = vars[V.baseVn];
+                                std::string be = B.addrExpr;
+                                if (be.find(' ') != std::string::npos && be[0] != '(') be = "(" + be + ")";
+                                foldAddr = "*(" + B.loadGlyph + " *)" + be + " + " + constOfs(V.loadOff);
+                                foldBase = V.baseVn;
+                            } else {
+                                foldAddr = V.addrExpr;
+                            }
+                            folded = true;
+                            foldVn = vn;
+                        } else if (castOnly) {
+                            nm = s.txt;
+                            markUsed(s.vn);
+                        } else {
+                            nm = s.txt;
+                            markUsed(s.vn);
+                        }
+                    }
                 }
             }
-            if (nm.empty()) { out.push_back(asmLine(ind, n)); rs[0] = RS(); rs[30] = RS(); return; }
+            if (!folded && nm.empty()) { out.push_back(asmLine(ind, n)); rs[0] = RS(); rs[30] = RS(); return; }
         } else {
             nm = cxxDemangle(callName(n.target));
             if (nm.empty()) nm = callName(n.target);
         }
         std::string args = buildArgs();
         int use = x0Use(ii);
+        if (castOnly) {
+            // var referenced elsewhere: still give it the IDA function-pointer-cast shape
+            int ac = 0;
+            for (size_t q = 0; q < args.size(); q++) if (args[q] == ',') ac++;
+            if (!args.empty()) ac++;
+            std::string ty;
+            for (int q = 0; q < ac; q++) { if (q) ty += ", "; ty += "__int64"; }
+            if (ac == 0) ty = "void";
+            std::string sig = (use == 1 ? std::string("__int64") : std::string("void")) +
+                              " (__fastcall **)(" + ty + ")";
+            std::string callee = "(*(" + sig + ")" + nm + ")";
+            if (use == 1) {
+                varName(0);
+                out.push_back(pad(ind) + vars[rs[0].vn].name + " = " + callee + "(" + args + ");");
+                setReg(0);
+            } else {
+                out.push_back(pad(ind) + callee + "(" + args + ");");
+                setReg(0);
+            }
+            rs[30] = RS();
+            return;
+        }
+        if (folded) {
+            // IDA shape: v = *(void (**)(...))(*(_QWORD *)obj + 24)
+            int ac = 0;
+            for (size_t q = 0; q < args.size(); q++) if (args[q] == ',') ac++;
+            if (!args.empty()) ac++;
+            std::string ty;
+            for (int q = 0; q < ac; q++) { if (q) ty += ", "; ty += "__int64"; }
+            if (ac == 0) ty = "void";
+            std::string sig = (use == 1 ? std::string("__int64") : std::string("void")) +
+                              " (__fastcall **)(" + ty + ")";
+            std::string stmt = pad(ind);
+            if (use == 1) { varName(0); stmt += vars[rs[0].vn].name + " = "; }
+            stmt += "(*(" + sig + ")(" + foldAddr + "))(" + args + ");";
+            out.push_back(stmt);
+            if (use == 1) setReg(0);
+            vars[foldVn].used = false; vars[foldVn].nuse = 0;          // the folded loads disappear
+            if (vars[foldVn].defLine >= 0 && vars[foldVn].defLine < (int)out.size()) out[vars[foldVn].defLine].clear();
+            if (vars[foldVn].prevDefLine >= 0 && vars[foldVn].prevDefLine != vars[foldVn].defLine &&
+                vars[foldVn].prevDefLine < (int)out.size()) out[vars[foldVn].prevDefLine].clear();
+            if (foldBase >= 0 && foldBase != foldVn) {
+                vars[foldBase].used = false; vars[foldBase].nuse = 0;
+                if (vars[foldBase].defLine >= 0 && vars[foldBase].defLine < (int)out.size()) out[vars[foldBase].defLine].clear();
+            }
+            rs[30] = RS();
+            return;
+        }
         if (use == 1) {
             varName(0);
             out.push_back(pad(ind) + vars[rs[0].vn].name + " = " + nm + "(" + args + ");");
@@ -827,9 +918,30 @@ struct PGen {
                 if (vr >= 0)
                     out.push_back(pad(ind) + rawRegTxt(vr) + " = *(" + g + " *)(" + addr + ");");
             } else {
+                std::string prevVal;                    // value this register's var held before reuse
+                int prevDef = -1;
+                if (rs[vr].vn >= 0 && vars[rs[vr].vn].fromLoad) {
+                    std::string ae = vars[rs[vr].vn].addrExpr;
+                    bool needP = ae.find(' ') != std::string::npos;
+                    prevVal = "*(" + vars[rs[vr].vn].loadGlyph + " *)" + (needP ? "(" + ae + ")" : ae);
+                    prevDef = vars[rs[vr].vn].defLine;
+                }
+                else if (rs[vr].vn >= 0) prevVal = vars[rs[vr].vn].name;
                 varName(vr);
                 out.push_back(pad(ind) + vars[rs[vr].vn].name + " = *(" + g + " *)(" + addr + ");");
                 setReg(vr);
+                if (mp.idx < 0) {                       // remember the load for IDA-style vtable folding
+                    Var &V = vars[rs[vr].vn];
+                    V.fromLoad = true;
+                    V.loadGlyph = g;
+                    V.addrExpr = addr;
+                    V.loadOff = mp.imm;
+                    V.defLine = (int)out.size() - 1;
+                    V.baseVn = vnOfName(bs);
+                    V.prevText = prevVal;
+                    V.prevDefLine = prevDef;
+                    V.nuse = 0;                         // count only references after the latest load
+                }
             }
         }
         if (excl) {
@@ -911,7 +1023,7 @@ struct PGen {
                 out.push_back(pad(ind) + "*(" + g + " *)&" + nm + " = " + regText(vr) + ";");
                 markUsed(rs[vr].vn);
             } else {
-                if (vr < 0) return;
+                if (vr < 0 || vr == 29 || vr == 30 || vr == 31) return;
                 RS &s = rs[vr];
                 varName(vr);
                 s.w = true; s.hasC = false; s.hasP = false; s.txt = vars[s.vn].name;
@@ -1629,6 +1741,9 @@ struct PGen {
     void walkAll() {
         walk(0, (int)blocks.size(), 4, records, 0);
         depth--;
+        std::vector<std::string> cleaned;                     // drop statements folded into calls
+        for (size_t i = 0; i < records.size(); i++) if (!records[i].empty()) cleaned.push_back(records[i]);
+        records.swap(cleaned);
     }
 
     void assemble() {

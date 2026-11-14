@@ -25,6 +25,12 @@ toolchain needed).
 - If/else/while/do-while/goto reconstruction, stack-slot variables, call-argument tracking.
 - **Variable declarations** like real IDA: every function starts with
   `__int64 v8; // x0` style declarations inside the function body.
+- **Vtable / indirect calls in IDA form**: a load of a function pointer followed by its call
+  is folded into the real decompiler shape —
+  `v7 = (*(__int64 (__fastcall **)(__int64, __int64, __int64))(*(_QWORD *)a1 + 24))(a1, a2, a3);`
+  with the intermediate load statements removed. When the pointer is also used by a null
+  check, the def stays and the call takes the cast form
+  `(*(void (__fastcall **)(...))v13)(args)`.
 - Unnamed call targets display as `sub_XXXX` — never raw `0x…` addresses.
 - Syntax coloring, **selectable/copyable text** (long-press selection), and **A- / A+** font
   sizing with persistence.
