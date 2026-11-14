@@ -167,11 +167,15 @@ static jstring n_savedPos(JNIEnv* e, jclass, jlong h) {
     return js(e, hx(d->savedCursor) + "\x01" + hx(d->savedHex));
 }
 static jstring n_save(JNIEnv* e, jclass, jlong h, jstring p, jlong cur, jlong hxv) {
-    std::lock_guard<std::mutex> lk(g_mutex);
     std::shared_ptr<Database> d = DB(h); if (!d) return js(e, "no database");
-    d->savedCursor = (uint64_t)cur; d->savedHex = (uint64_t)hxv;
-    std::string err;
-    if (!d->saveSnapshot(cs(e, p), err)) return js(e, err);
+    std::vector<uint8_t> b;
+    {
+        std::lock_guard<std::mutex> lk(g_mutex);   // only the serialization touches shared state
+        d->savedCursor = (uint64_t)cur; d->savedHex = (uint64_t)hxv;
+        b = d->serializeSnapshot();
+    }
+    std::string err;                               // disk I/O happens without the mutex, so UI
+    if (!Database::writeSnapshotBlob(b, cs(e, p), err)) return js(e, err);   // draws never stall on it
     return js(e, "");
 }
 

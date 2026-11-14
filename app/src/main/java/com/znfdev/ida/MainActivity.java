@@ -11,6 +11,7 @@ import android.database.Cursor;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Looper;
 import android.provider.OpenableColumns;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -114,6 +115,31 @@ public class MainActivity extends Activity implements DisasmView.Host, Session.L
         root.addView(buildOutput(), lp(-1, -2));
         root.addView(buildStatus(), lp(-1, -2));
         setContentView(root);
+
+        // Slow-dispatch watchdog: any main-thread message that takes too long is reported
+        // into the Output window with its stack, so a UI stall can be located in-app.
+        final long[] msgStart = { android.os.SystemClock.uptimeMillis() };
+        final String[] msgName = { "" };
+        final long[] lastReport = { 0 };
+        Looper.getMainLooper().setMessageLogging(new android.util.Printer() {
+            public void println(String x) {
+                long now = android.os.SystemClock.uptimeMillis();
+                if (x.startsWith(">>>>> Dispatching")) {
+                    msgStart[0] = now;
+                    int p = x.indexOf('{');
+                    msgName[0] = p > 0 ? x.substring(p + 1) : x;
+                } else if (x.startsWith("<<<<< Finished to")) {
+                    long dt = now - msgStart[0];
+                    if (dt > 400 && now - lastReport[0] > 2000) {
+                        lastReport[0] = now;
+                        StackTraceElement[] st = Thread.currentThread().getStackTrace();
+                        StringBuilder sb = new StringBuilder("Slow main thread: " + dt + "ms  [" + msgName[0] + "]");
+                        for (int i = 3; i < Math.min(st.length, 20); i++) sb.append("\n  at ").append(st[i]);
+                        log(sb.toString());
+                    }
+                }
+            }
+        });
 
         s.addListener(this);
         dbh = new IdaDatabase(this);

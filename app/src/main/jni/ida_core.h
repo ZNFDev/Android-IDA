@@ -77,6 +77,8 @@ public:
     int analyzeStep(int budget);                 // 1 = more work, 0 = done
     bool analysisDone() const { return namedDone; }
     bool saveSnapshot(const std::string& p, std::string& err);
+    std::vector<uint8_t> serializeSnapshot() const;
+    static bool writeSnapshotBlob(const std::vector<uint8_t>& b, const std::string& p, std::string& err);
     bool loadSnapshot(const std::string& p, std::string& err);
 
     bool readMem(uint64_t addr, void* dst, size_t n) const;

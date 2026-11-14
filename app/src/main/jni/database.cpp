@@ -778,32 +778,38 @@ static void wu32(std::vector<uint8_t>& b, uint32_t v) { wv(b, &v, 4); }
 static void wu64(std::vector<uint8_t>& b, uint64_t v) { wv(b, &v, 8); }
 static void wstr(std::vector<uint8_t>& b, const string& s) { wu32(b, (uint32_t)s.size()); wv(b, s.data(), s.size()); }
 
-bool Database::saveSnapshot(const string& p, string& err) {
+/** Serialize the database state into a byte blob (fast; call under the engine mutex). */
+std::vector<uint8_t> Database::serializeSnapshot() const {
+    std::vector<uint8_t> b;
+    wu32(b, SNAP_MAGIC); wu32(b, SNAP_VER);
+    wu32(b, machine); wu64(b, entry);
+    wu64(b, (uint64_t)file.size()); wu64(b, fnv1a64(file));
+    wstr(b, path);
+    wu8(b, stage1Done ? 1 : 0); wu8(b, sweepDone ? 1 : 0); wu8(b, strDone ? 1 : 0); wu8(b, namedDone ? 1 : 0);
+    wu64(b, (uint64_t)sweepSec); wu64(b, sweepOff);
+    wu64(b, (uint64_t)strSec); wu64(b, strOff); wu64(b, strSt); wu8(b, (uint8_t)strOk);
+    wu8(b, hasPend ? 1 : 0); wu64(b, pendAddr); wu64(b, pendPage); wu32(b, pendRd);
+    wu64(b, sweepDoneU); wu64(b, sweepTotalU); wu64(b, strDoneU); wu64(b, strTotalU);
+    wu64(b, savedCursor); wu64(b, savedHex);
+    wu64(b, funcs.size()); for (uint64_t f : funcs) wu64(b, f);
+    wu64(b, labels.size()); for (uint64_t l : labels) wu64(b, l);
+    wu64(b, names.size()); for (auto& kv : names) { wu64(b, kv.first); wstr(b, kv.second); }
+    wu64(b, strings.size()); for (auto& kv : strings) { wu64(b, kv.first); wstr(b, kv.second); }
+    wu64(b, xrefs.size());
+    for (auto& kv : xrefs) {
+        wu64(b, kv.first); wu32(b, (uint32_t)kv.second.size());
+        for (auto& x : kv.second) { wu64(b, x.from); wu8(b, (uint8_t)x.type); }
+    }
+    wu64(b, pairTarget.size()); for (auto& kv : pairTarget) { wu64(b, kv.first); wu64(b, kv.second); }
+    wu64(b, imports.size()); for (auto& s : imports) wstr(b, s);
+    wu64(b, exports.size()); for (auto& s : exports) wstr(b, s);
+    wu32(b, fnv32(b, b.size()));
+    return b;
+}
+
+/** Write a serialized blob to disk (slow; never call while holding the engine mutex). */
+bool Database::writeSnapshotBlob(const std::vector<uint8_t>& b, const std::string& p, std::string& err) {
     try {
-        std::vector<uint8_t> b;
-        wu32(b, SNAP_MAGIC); wu32(b, SNAP_VER);
-        wu32(b, machine); wu64(b, entry);
-        wu64(b, (uint64_t)file.size()); wu64(b, fnv1a64(file));
-        wstr(b, path);
-        wu8(b, stage1Done ? 1 : 0); wu8(b, sweepDone ? 1 : 0); wu8(b, strDone ? 1 : 0); wu8(b, namedDone ? 1 : 0);
-        wu64(b, (uint64_t)sweepSec); wu64(b, sweepOff);
-        wu64(b, (uint64_t)strSec); wu64(b, strOff); wu64(b, strSt); wu8(b, (uint8_t)strOk);
-        wu8(b, hasPend ? 1 : 0); wu64(b, pendAddr); wu64(b, pendPage); wu32(b, pendRd);
-        wu64(b, sweepDoneU); wu64(b, sweepTotalU); wu64(b, strDoneU); wu64(b, strTotalU);
-        wu64(b, savedCursor); wu64(b, savedHex);
-        wu64(b, funcs.size()); for (uint64_t f : funcs) wu64(b, f);
-        wu64(b, labels.size()); for (uint64_t l : labels) wu64(b, l);
-        wu64(b, names.size()); for (auto& kv : names) { wu64(b, kv.first); wstr(b, kv.second); }
-        wu64(b, strings.size()); for (auto& kv : strings) { wu64(b, kv.first); wstr(b, kv.second); }
-        wu64(b, xrefs.size());
-        for (auto& kv : xrefs) {
-            wu64(b, kv.first); wu32(b, (uint32_t)kv.second.size());
-            for (auto& x : kv.second) { wu64(b, x.from); wu8(b, (uint8_t)x.type); }
-        }
-        wu64(b, pairTarget.size()); for (auto& kv : pairTarget) { wu64(b, kv.first); wu64(b, kv.second); }
-        wu64(b, imports.size()); for (auto& s : imports) wstr(b, s);
-        wu64(b, exports.size()); for (auto& s : exports) wstr(b, s);
-        wu32(b, fnv32(b, b.size()));
         string tmp = p + ".tmp";
         remove(tmp.c_str());
         {
@@ -815,6 +821,13 @@ bool Database::saveSnapshot(const string& p, string& err) {
         remove(p.c_str());
         if (rename(tmp.c_str(), p.c_str())) { err = "cannot rename database file"; return false; }
         return true;
+    } catch (...) { err = "database save failed"; return false; }
+}
+
+bool Database::saveSnapshot(const string& p, string& err) {
+    try {
+        std::vector<uint8_t> b = serializeSnapshot();
+        return writeSnapshotBlob(b, p, err);
     } catch (...) { err = "database save failed"; return false; }
 }
 

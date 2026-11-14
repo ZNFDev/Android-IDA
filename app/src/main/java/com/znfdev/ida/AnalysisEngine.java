@@ -18,10 +18,12 @@ public final class AnalysisEngine {
     }
 
     private static final int BUDGET = 3000;      // words or bytes per analyzeStep call
-    private static final int POST_MS = 250;      // UI checkpoint interval
+    private static final int POST_MS = 400;      // UI checkpoint interval
     private static final int SAVE_MS = 4000;     // autosave interval
 
     private final Handler ui = new Handler(Looper.getMainLooper());
+    private final java.util.concurrent.atomic.AtomicBoolean uiApplyPending =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
     private Session s;
     private String snapPath;
     private Listener l;
@@ -31,6 +33,8 @@ public final class AnalysisEngine {
     public volatile long hexAddr;               // Hex View position, stored in the database
     private long lastPost, lastSave, t0;
     private String lastState = "";              // last liveState seen; unchanged -> skip map rebuild
+    private final java.util.concurrent.atomic.AtomicBoolean saving =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
 
     public boolean busy() { return running; }
     public boolean isPaused() { return paused; }
@@ -94,21 +98,32 @@ public final class AnalysisEngine {
         if (w != null) { try { w.join(3000); } catch (InterruptedException e) { } }
     }
 
-    /** Immediate save; safe from the UI thread (native side is mutex-protected). */
+    /** Immediate save; serialized blob under the native mutex, disk write on a worker thread. */
     public void saveNow() {
         if (h != 0 && s != null) saveSnapshot();
     }
 
     private void saveSnapshot() {
-        long cur = s != null ? s.cur : 0;
-        String err = NativeBridge.saveState(h, snapPath, cur, hexAddr);
-        if (err.length() > 0 && l != null) {
-            final String e = err;
-            ui.post(new Runnable() { public void run() { if (l != null) l.onError(e); } });
-        }
+        if (h == 0 || s == null) return;
+        if (!saving.compareAndSet(false, true)) return;   // a save is already in flight; skip
+        final long hh = h;
+        final Session sess = s;
+        final String path = snapPath;
+        new Thread(new Runnable() { public void run() {
+            try {
+                String err = NativeBridge.saveState(hh, path, sess.cur, hexAddr);
+                if (err.length() > 0 && l != null) {
+                    final String e2 = err;
+                    ui.post(new Runnable() { public void run() { if (l != null) l.onError(e2); } });
+                }
+            } finally {
+                saving.set(false);
+            }
+        }}, "ida-snapshot-save").start();
     }
 
-    /** Runs on the worker thread: native state read + fresh map build, then a light UI apply. */
+    /** Runs on the worker thread: native state read + fresh map build, then a light UI apply.
+     *  At most one apply is pending on the UI thread; newer checkpoints replace stale ones. */
     private void checkpoint() {
         String st0 = NativeBridge.liveState(h);
         String[] st = Fmt.split(st0);
@@ -119,7 +134,11 @@ public final class AnalysisEngine {
         final Session.Maps m = mm;
         final int pct = st.length > 2 ? parseInt(st[2]) : 0;
         final int stage = st.length > 1 ? parseInt(st[1]) : 0;
-        ui.post(new Runnable() { public void run() { apply(pct, stage, m, false); } });
+        if (!uiApplyPending.compareAndSet(false, true)) return;   // an apply is already queued
+        ui.post(new Runnable() { public void run() {
+            try { apply(pct, stage, m, false); }
+            finally { uiApplyPending.set(false); }
+        }});
     }
 
     private void postEnd(final String err, final boolean cancelled, final long ms) {
@@ -131,10 +150,12 @@ public final class AnalysisEngine {
         try { st = Fmt.split(NativeBridge.liveState(h)); } catch (Throwable t) { st = new String[0]; }
         final int pct = st.length > 2 ? parseInt(st[2]) : 0;
         ui.post(new Runnable() { public void run() {
-            if (l == null || s == null || s.h != hh) return;
-            apply(pct, 3, m, true);
-            if (err != null) l.onError(err);
-            else l.onDone(ms, cancelled);
+            try {
+                if (l == null || s == null || s.h != hh) return;
+                apply(pct, 3, m, true);
+                if (err != null) l.onError(err);
+                else l.onDone(ms, cancelled);
+            } finally { uiApplyPending.set(false); }
         }});
     }
 
