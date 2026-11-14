@@ -1,0 +1,245 @@
+Android-IDA Custom License (AIDACL)
+Version 1.1, 14 November 2026
+
+Copyright (c) 2026 Android-IDA Project Contributors
+(https://github.com/ZNFDev/Android-IDA). All rights reserved.
+
+----------------------------------------------------------------------
+
+This license governs use, copying, distribution, contribution to,
+and derivation from the software project known as "Android-IDA",
+hosted at https://github.com/ZNFDev/Android-IDA (the "Software"), including its source code, documentation, assets,
+build scripts, and accompanying materials.
+
+By viewing, cloning, forking, downloading, building, running, or
+otherwise accessing the Software, you ("You") accept and agree to be
+bound by the terms of this license. If You do not agree, You may not
+access or use the Software in any manner.
+
+----------------------------------------------------------------------
+
+1. DEFINITIONS
+
+   1.1 "Software" means the Android-IDA project in its entirety,
+       including all source code, object code, binaries, documentation,
+       images, configuration files, build scripts, and any derivative
+       works prepared by the copyright holders, whether distributed in
+       source or binary form.
+
+   1.2 "Contributor" means any individual or entity who submits
+       original work to the Software via the official channels
+       maintained by the copyright holders (e.g., pull requests,
+       patches, or issue trackers designated by the project).
+
+   1.3 "Contribution" means any original work of authorship, including
+       modifications, additions, fixes, or improvements, that is
+       intentionally submitted by a Contributor to the Software for
+       inclusion.
+
+   1.4 "Competing Product" means any software, tool, service, or
+       product, whether open or closed source, free or paid, that
+       provides functionality substantially similar to or derived from
+       the Software, including but not limited to: interactive
+       disassemblers, decompilers, binary analysis tools, or reverse
+       engineering suites targeting the Android platform or any other
+       platform.
+
+   1.5 "Derivative Work" means any work that is based upon or derived
+       from the Software, in whole or in part, including translations,
+       modifications, adaptations, remixes, or any other form in which
+       the Software may be recast, transformed, or rewritten.
+
+----------------------------------------------------------------------
+
+2. GRANTED RIGHTS
+
+   Subject to full and continuing compliance with this license, the
+   copyright holders grant You a non-exclusive, non-transferable,
+   non-sublicensable, revocable, worldwide, royalty-free, personal
+   license to:
+
+   (a) read, inspect, and study the source code of the Software for
+       personal learning, education, and research purposes;
+
+   (b) build and run the Software locally on devices You own or
+       control, solely for personal, non-commercial use;
+
+   (c) contribute back to the official Android-IDA repository
+       (https://github.com/ZNFDev/Android-IDA) through the
+       contribution channels designated by the project, subject to
+       Section 4 (Contributions);
+
+   (d) report issues, suggest improvements, and engage in discussions
+       within the official project community.
+
+   These rights are granted solely for the benefit of the Android-IDA
+   Project and its community, and not for the benefit of any
+   third party or competing effort.
+
+----------------------------------------------------------------------
+
+3. PROHIBITED USES
+
+   The following are expressly prohibited, regardless of whether they
+   are conducted by You directly, through an agent, or through a third
+   party acting on Your behalf:
+
+   3.1 CODE REUSE OUTSIDE THE PROJECT. You may not copy, extract,
+       borrow, paraphrase, re-implement, or otherwise reuse any
+       portion of the Software's source code, algorithms, data
+       structures, file formats, protocols, configuration, or assets
+       in any other project, product, or repository, whether or not
+       that other effort competes with the Software.
+
+   3.2 COMPETING PRODUCTS. You may not use, reference, or rely upon
+       the Software, in whole or in part, to design, build, market,
+       distribute, maintain, or support any Competing Product.
+
+   3.3 DERIVATIVE WORKS. You may not create, publish, host, or
+       distribute any Derivative Work of the Software outside the
+       official Android-IDA repository. The only permitted form
+       of modification is a Contribution submitted back to the
+       project under Section 4.
+
+   3.4 RE-DISTRIBUTION. You may not re-distribute, mirror, republish,
+       sublicense, sell, lease, rent, or otherwise make the Software
+       available to third parties, in source or binary form, without
+       prior written permission from the copyright holders. Linking
+       to the official repository is permitted and encouraged.
+
+   3.5 COMMERCIAL USE. Commercial use of the Software, in any form,
+       is prohibited without a separate written commercial license
+       executed by the copyright holders. "Commercial use" includes,
+       without limitation: using the Software inside a paid product
+       or service; using the Software to perform work for which You
+       or any third party receives compensation; offering training,
+       consulting, or support services built around the Software; and
+       embedding the Software, in whole or in part, into any offering
+       that is distributed or sold.
+
+   3.6 HARMFUL USE. You may not use the Software to develop, test,
+       deploy, or facilitate malware, exploits, spyware, ransomware,
+       or any other software intended to cause harm, unauthorized
+       access, or surveillance of systems or individuals.
+
+----------------------------------------------------------------------
+
+4. CONTRIBUTIONS
+
+   4.1 SUBMISSION. Any Contribution You submit to the Android-IDA
+       project will be governed by the contribution policy published
+       in the official repository at the time of submission. If no
+       such policy exists, the terms of this Section 4 apply.
+
+   4.2 LICENSE-BACK. By submitting a Contribution, You grant to the
+       Android-IDA Project Contributors an irrevocable, perpetual,
+       worldwide, royalty-free, sublicensable, transferable license
+       to reproduce, modify, distribute, display, perform, sublicense,
+       and otherwise exploit the Contribution as part of the Software
+       or any related project, in any form and through any medium,
+       without further notice or compensation.
+
+   4.3 ORIGINALITY. You represent and warrant that each Contribution
+       is Your original work, that You have the legal right to
+       submit it, and that it does not infringe the intellectual
+       property rights of any third party.
+
+   4.4 NO COMPETING CONTRIBUTIONS ELSEWHERE. If You have viewed or
+       contributed to the Software, You agree not to contribute
+       substantially similar work to any Competing Product for a
+       period of twenty-four (24) months following Your last access
+       to or contribution to the Software.
+
+----------------------------------------------------------------------
+
+5. ATTRIBUTION
+
+   When You reference, discuss, or otherwise mention the Software in
+   public materials (including but not limited to blog posts,
+   articles, talks, videos, academic papers, or social media), You
+   must:
+
+   (a) identify the Software by its name, "Android-IDA";
+
+   (b) link back to the official project repository at
+       https://github.com/ZNFDev/Android-IDA; and
+
+   (c) clearly state that the Software is licensed under the
+       Android-IDA Custom License (AIDACL), Version 1.1.
+
+----------------------------------------------------------------------
+
+6. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND
+   NON-INFRINGEMENT. THE COPYRIGHT HOLDERS AND CONTRIBUTORS MAKE NO
+   REPRESENTATION THAT THE SOFTWARE WILL BE ERROR-FREE, SECURE,
+   UNINTERRUPTED, OR SUITABLE FOR ANY PARTICULAR PURPOSE.
+
+----------------------------------------------------------------------
+
+7. LIMITATION OF LIABILITY
+
+   IN NO EVENT SHALL THE COPYRIGHT HOLDERS, CONTRIBUTORS, OR
+   MAINTAINERS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING BUT NOT
+   LIMITED TO LOSS OF DATA, PROFITS, GOODWILL, OR BUSINESS
+   INTERRUPTION) ARISING OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+   THE USE OR OTHER DEALINGS IN THE SOFTWARE, WHETHER IN AN ACTION OF
+   CONTRACT, TORT, OR ANY OTHER LEGAL THEORY, EVEN IF ADVISED OF THE
+   POSSIBILITY OF SUCH DAMAGE.
+
+----------------------------------------------------------------------
+
+8. TERMINATION
+
+   8.1 AUTOMATIC TERMINATION. This license and all rights granted
+       hereunder terminate automatically and immediately upon any
+       breach by You of any term of this license, including but not
+       limited to Sections 3 and 4. Upon termination, You must cease
+       all use of the Software, destroy all copies in Your possession
+       or control, and confirm such destruction in writing upon
+       request.
+
+   8.2 SURVIVAL. Sections 1, 3, 4.2, 5, 6, 7, 8, and 9 survive
+       termination of this license.
+
+----------------------------------------------------------------------
+
+9. MISCELLANEOUS
+
+   9.1 GOVERNING LAW. This license shall be governed by and construed
+       in accordance with the laws of India, without regard to its
+       conflict-of-laws principles.
+
+   9.2 ENTIRE AGREEMENT. This license constitutes the entire
+       agreement between You and the copyright holders with respect
+       to the Software and supersedes all prior or contemporaneous
+       understandings.
+
+   9.3 AMENDMENTS. The copyright holders reserve the right to issue
+       updated versions of this license. The version of the license
+       that applies to any given copy of the Software is the version
+       shipped with that copy.
+
+   9.4 SEVERABILITY. If any provision of this license is held to be
+       unenforceable, the remaining provisions shall remain in full
+       force and effect.
+
+   9.5 WAIVER. No waiver of any provision of this license shall be
+       effective unless in writing and signed by the copyright
+       holders, and no failure to enforce any provision shall
+       constitute a waiver of future enforcement.
+
+----------------------------------------------------------------------
+
+For permissions, commercial licensing, or questions beyond the scope
+of this license, contact the Android-IDA Project Contributors through
+the official repository at https://github.com/ZNFDev/Android-IDA, or
+via the contact details published in the repository's profile.
+
+----------------------------------------------------------------------
+
+SPDX-License-Identifier: LicenseRef-AIDACL-1.1
