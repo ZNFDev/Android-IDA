@@ -9,7 +9,10 @@ import android.graphics.Canvas;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.view.ActionMode;
 import android.view.GestureDetector;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
@@ -38,6 +41,8 @@ public class DisasmView extends View implements Session.JumpListener {
     private boolean atTop, atEnd;
     private float scrollX, scrollY;
     private int cursorLine = -1;
+    private int selA = -1, selB = -1;            // selected line range (inclusive); -1 = none
+    private ActionMode am;
     private int maxChars;
     private String hi;
     private long pendingJump = -1;
@@ -66,6 +71,11 @@ public class DisasmView extends View implements Session.JumpListener {
         gd = new GestureDetector(c, new GestureDetector.SimpleOnGestureListener() {
             @Override public boolean onDown(MotionEvent e) { flinging = false; return true; }
             @Override public boolean onScroll(MotionEvent a, MotionEvent b, float dx, float dy) {
+                if (am != null) {                                   // dragging a selection extends it instead of scrolling
+                    int i = lineAt(b.getY());
+                    if (i >= 0 && i < lines.size()) { selB = i; normSel(); invalidate(); }
+                    return true;
+                }
                 scrollBy(dx, dy); return true;
             }
             @Override public boolean onFling(MotionEvent a, MotionEvent b, float vx, float vy) {
@@ -194,6 +204,7 @@ public class DisasmView extends View implements Session.JumpListener {
         if (seg == null) return;
         if (seg.exec()) t = seg.start + ((t - seg.start) & ~3L);
         lines.clear(); atTop = atEnd = false; maxChars = 0; cursorLine = -1;
+        selA = selB = -1;                                    // stale selection cannot survive a rebuild
         scrollX = 0; scrollY = 0; flinging = false;
         bufStart = bufEnd = t;
         prependChunk();
@@ -289,6 +300,7 @@ public class DisasmView extends View implements Session.JumpListener {
     }
 
     private void tap(float x, float y, boolean dbl) {
+        if (am != null) { am.finish(); return; }                // tap clears the selection
         int i = lineAt(y);
         if (i < 0 || i >= lines.size()) return;
         Line l = lines.get(i);
@@ -309,8 +321,54 @@ public class DisasmView extends View implements Session.JumpListener {
         int i = lineAt(y);
         if (i < 0 || i >= lines.size()) return;
         final Line l = lines.get(i);
-        setCursorLine(i);
         final String tok = tokenAt(l, x);
+        if (tok != null) {                                      // token press keeps the rich menu
+            setCursorLine(i);
+            lineMenu(l, tok);
+            return;
+        }
+        if (am != null) { selB = i; normSel(); invalidate(); return; }   // extend
+        selA = selB = i;
+        am = startActionMode(selMode);
+        invalidate();
+    }
+
+    private void normSel() { if (selA > selB) { int t = selA; selA = selB; selB = t; } }
+
+    private final ActionMode.Callback selMode = new ActionMode.Callback() {
+        public boolean onCreateActionMode(ActionMode m, Menu menu) {
+            menu.add(0, 1, 0, "Copy");
+            menu.add(0, 2, 0, "Copy line");
+            menu.add(0, 3, 0, "More...");
+            return true;
+        }
+        public boolean onPrepareActionMode(ActionMode m, Menu menu) { return false; }
+        public boolean onActionItemClicked(ActionMode m, MenuItem it) {
+            switch (it.getItemId()) {
+                case 1: copySelection(); m.finish(); return true;
+                case 2: if (selA >= 0 && selA < lines.size()) copy(lines.get(selA).text); m.finish(); return true;
+                case 3: {
+                    Line l = (selA >= 0 && selA < lines.size()) ? lines.get(selA) : null;
+                    m.finish();
+                    if (l != null) lineMenu(l, null);
+                    return true;
+                }
+            }
+            return false;
+        }
+        public void onDestroyActionMode(ActionMode m) { selA = selB = -1; am = null; invalidate(); }
+    };
+
+    private void copySelection() {
+        int a = Math.min(selA, selB), b = Math.max(selA, selB);
+        if (a < 0 || a >= lines.size()) return;
+        b = Math.min(b, lines.size() - 1);
+        StringBuilder sb = new StringBuilder();
+        for (int i = a; i <= b; i++) { if (i > a) sb.append('\n'); sb.append(lines.get(i).text); }
+        copy(sb.toString());
+    }
+
+    private void lineMenu(final Line l, final String tok) {
         final long tgt = tok != null ? s.lookup(bare(tok)) : (l.target);
         final ArrayList<String> labels = new ArrayList<String>();
         final ArrayList<Integer> ids = new ArrayList<Integer>();
@@ -404,6 +462,14 @@ public class DisasmView extends View implements Session.JumpListener {
         for (int i = first; i <= last; i++) {
             float y = i * lineH - scrollY;
             if (i == cursorLine) { fill.setColor(Theme.CUR_LINE); c.drawRect(0, y, w, y + lineH, fill); }
+        }
+        if (selA >= 0 && selB >= 0 && selA < lines.size() && selB < lines.size()) {
+            int sa = Math.min(selA, selB), sb2 = Math.max(selA, selB);
+            fill.setColor(0x334477CC);
+            for (int i = Math.max(first, sa); i <= Math.min(last, sb2); i++) {
+                float y = i * lineH - scrollY;
+                c.drawRect(0, y, w, y + lineH, fill);
+            }
         }
         if (hi != null && hi.length() > 0) {
             fill.setColor(Theme.TOKEN_HI);

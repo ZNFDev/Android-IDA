@@ -14,7 +14,11 @@ toolchain needed).
 - Full AArch64 listing with IDA chrome: `sec:0000000000CA1A58` prefixes, subroutine headers,
   `sub_XXXX` / `loc_XXXX` / data labels, `; CODE XREF` / `; DATA XREF` comment columns,
   `; End of function` markers, string literals, ADRP+ADD `@PAGEOFF` name resolution.
-- Token highlighting, tap-to-jump, double-tap xrefs, long-press menu (**Copy line**, xrefs, hex dump).
+- Branch targets auto-named: `CBZ X8, loc_19F5C`, `BL sub_19F68` (named targets keep their names).
+- Token highlighting, tap-to-jump, double-tap xrefs, long-press menu (xrefs, hex dump, copy).
+- **Drag-select + copy**: long-press on empty space starts line selection with drag-to-extend
+  and an action bar (**Copy** / **Copy line** / **More...**); tap clears it. Token long-press
+  keeps the rich per-symbol menu.
 - Pinch-zoom, fling scrolling, G (jump) and X (xrefs) hotkeys on the disassembly tab.
 
 ### Pseudocode-A (Hex-Rays-style decompiler)
@@ -45,7 +49,7 @@ toolchain needed).
   across the whole file.
 
 ### Tables (IDA-ordered tabs)
-`Pseudocode-A · IDA View-A · Hex View-A · Functions · Strings · Imports · Exports · Names · Segments`
+`IDA View-A · Pseudocode-A · Hex View-A · Functions · Strings · Imports · Exports · Names · Segments`
 — all tables tap-to-jump, long-press for xrefs, checkpoint-refreshed every 600 ms.
 
 ### Analysis engine
@@ -97,6 +101,13 @@ Record formats:
 
 ## Changelog highlights
 
+- Tab order: **IDA View-A first, Pseudocode-A second, Hex View-A third**; IDA View-A is the
+  default tab; F5 still opens pseudocode; all jump/search flows land on the disassembly.
+- Branch targets auto-named in the listing (`loc_` for unnamed branches, `sub_` for unnamed
+  call targets — matching the pseudocode naming).
+- IDA View-A is now selectable: drag-select lines + action bar Copy/Copy line/More.
+- Fixed the double `which - 3` table refresh crash (`ArrayIndexOutOfBoundsException` on the
+  Strings tab).
 - Tab order aligned with IDA; Pseudocode-A is the default tab.
 - Variable declarations emitted (the V-record pass now runs after statement generation).
 - Inbuilt SigMaker with AArch64 wildcard rules and whole-file uniqueness check.

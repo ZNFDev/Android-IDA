@@ -889,13 +889,24 @@ bool Database::loadSnapshot(const string& p, string& err) {
     } catch (...) { remove(p.c_str()); err = "corrupt database file"; return false; }
 }
 
+string Database::targetName(uint64_t t, const string& mnem) const {
+    auto nm = names.find(t);
+    if (nm != names.end()) return nm->second;
+    bool code = mnem == "B" || mnem == "BL" || mnem.rfind("B.", 0) == 0 ||
+                mnem == "CBZ" || mnem == "CBNZ" || mnem == "TBZ" || mnem == "TBNZ";
+    if (code && funcs.count(t)) return "sub_" + hex(t);
+    if (code && labels.count(t)) return "loc_" + hex(t);
+    if (code) return (mnem == "BL") ? ("sub_" + hex(t)) : ("loc_" + hex(t));   // display-only auto labels; BL targets read as functions like the pseudo view
+    return nameAt(t);
+}
+
 string Database::resolveOps(const Insn& in) const {
     string o = in.ops;
     size_t p = o.find('\x02');
     if (p != string::npos) {
         uint64_t t = in.target; auto pt = pairTarget.find(in.addr);
         if (in.mnem == "ADRP" && pt != pairTarget.end()) t = pt->second;
-        o.replace(p, 1, nameAt(t));
+        o.replace(p, 1, targetName(t, in.mnem));
     }
     return o;
 }

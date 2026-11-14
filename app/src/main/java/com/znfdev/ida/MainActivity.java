@@ -40,7 +40,7 @@ import java.util.Map;
 public class MainActivity extends Activity implements DisasmView.Host, Session.Listener {
 
     private static final int REQ_OPEN = 71;
-    private static final String[] TAB_NAMES = {"Pseudocode-A", "IDA View-A", "Hex View-A", "Functions", "Strings", "Imports", "Exports", "Names", "Segments"};
+    private static final String[] TAB_NAMES = {"IDA View-A", "Pseudocode-A", "Hex View-A", "Functions", "Strings", "Imports", "Exports", "Names", "Segments"};
 
     private final Session s = new Session();
     private DisasmView dv;
@@ -102,7 +102,7 @@ public class MainActivity extends Activity implements DisasmView.Host, Session.L
         dv = new DisasmView(this, s); dv.setHost(this);
         hv = new HexView(this, s);
         pv = new PseudoView(this, s);
-        tabViews[0] = pv; tabViews[1] = dv; tabViews[2] = hv;
+        tabViews[0] = dv; tabViews[1] = pv; tabViews[2] = hv;
         tables[0] = functionsTable(); tables[1] = stringsTable(); tables[2] = importsTable();
         tables[3] = exportsTable(); tables[4] = namesTable(); tables[5] = segmentsTable();
         for (int i = 0; i < 6; i++) tabViews[3 + i] = tables[i];
@@ -167,7 +167,7 @@ public class MainActivity extends Activity implements DisasmView.Host, Session.L
         btnFwd = tool("\u25B6", new View.OnClickListener() { public void onClick(View v) { s.forward(MainActivity.this); } });
         row.addView(btnBack); row.addView(btnFwd);
         row.addView(tool("Open", new View.OnClickListener() { public void onClick(View v) { openChooser(); } }));
-        row.addView(tool("F5", new View.OnClickListener() { public void onClick(View v) { selectTab(0); } }));
+        row.addView(tool("F5", new View.OnClickListener() { public void onClick(View v) { selectTab(1); } }));
         row.addView(tool("Go to", new View.OnClickListener() { public void onClick(View v) { jumpDialog(); } }));
         row.addView(tool("Xrefs", new View.OnClickListener() { public void onClick(View v) { xrefsHere(); } }));
         row.addView(tool("Search", new View.OnClickListener() { public void onClick(View v) { searchDialog(); } }));
@@ -268,8 +268,8 @@ public class MainActivity extends Activity implements DisasmView.Host, Session.L
             tabLabels[k].setBackgroundColor(k == i ? Theme.BG : Theme.PANEL);
         }
         if (s.isOpen()) {
-            if (i == 0 && pv != null) pv.showAt(s.cur);
-            if (i == 1) dv.syncTo(s.cur);
+            if (i == 0 && dv != null) dv.syncTo(s.cur);
+            if (i == 1 && pv != null) pv.showAt(s.cur);
             if (i == 2) hv.showAt(s.cur);
         }
     }
@@ -360,7 +360,7 @@ public class MainActivity extends Activity implements DisasmView.Host, Session.L
                      cm.setPrimaryClip(android.content.ClipData.newPlainText("addr", Fmt.hex16(s.cur))); onMessage("Copied"); } break;
             case 11: outText.setText(""); break;
             case 20: jumpDialog(); break;
-            case 21: if (need()) { long e = firstCode(); s.jump(e, this); selectTab(1); } break;
+            case 21: if (need()) { long e = firstCode(); s.jump(e, this); selectTab(0); } break;
             case 22: selectTab(3); break;
             case 23: xrefsHere(); break;
             case 24: s.back(this); break;
@@ -374,7 +374,7 @@ public class MainActivity extends Activity implements DisasmView.Host, Session.L
             case 42: selectTab(7); break;
             case 43: selectTab(8); break;
             case 44: outTitle.performClick(); break;
-            case 45: selectTab(0); break;
+            case 45: selectTab(1); break;
             case 90: new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
                     .setTitle("IDA for Android")
                     .setMessage("AArch64 ELF disassembler. Native core: libidacore.so (C++17). UI: IDA View, Hex View, Functions, Strings, Imports, Exports, Names, Segments.")
@@ -718,7 +718,7 @@ public class MainActivity extends Activity implements DisasmView.Host, Session.L
                 if (!s.isOpen()) return;
                 for (int i = 0; i < 6; i++) tables[i].setRows(data.get(i));
                 nb.rebuild();
-                if (curTab == 1) dv.refresh();
+                if (curTab == 0) dv.refresh();
                 if (curTab == 2) hv.showAt(s.cur);
             }});
         }}).start();
@@ -730,11 +730,12 @@ public class MainActivity extends Activity implements DisasmView.Host, Session.L
         long now = System.currentTimeMillis();
         if (now - lastTblMs < 600) return;
         lastTblMs = now;
-        if (curTab >= 3 && curTab < 9) refreshTable(curTab - 3);
-        if (curTab == 1) dv.refresh();
+        if (curTab >= 3 && curTab < 9) refreshTable(curTab);
+        if (curTab == 0) dv.refresh();
     }
 
     private void refreshTable(final int which) {
+        if (which < 3 || which > 8) return;
         new Thread(new Runnable() { public void run() {
             final ArrayList<String[]> rows = tableRows(which - 3);
             runOnUiThread(new Runnable() { public void run() {
@@ -762,7 +763,7 @@ public class MainActivity extends Activity implements DisasmView.Host, Session.L
                 if (a == 0) { onMessage("No address"); return; }
                 if (lp) { XrefDialog.show(MainActivity.this, s, a, row[0], MainActivity.this); return; }
                 s.jump(a, MainActivity.this);
-                selectTab(1);
+                selectTab(0);
             }
         });
         return tv;
@@ -819,7 +820,7 @@ public class MainActivity extends Activity implements DisasmView.Host, Session.L
         long a = s.lookup(t);
         if (a == 0) { try { a = Fmt.parseHex(t); } catch (Exception e) { onMessage("Command \"JumpAsk\" failed"); return false; } }
         if (s.snapForward(a) < 0) { onMessage("Command \"JumpAsk\" failed"); return false; }
-        s.jump(a, this); selectTab(1);
+        s.jump(a, this); selectTab(0);
         return true;
     }
 
@@ -867,7 +868,7 @@ public class MainActivity extends Activity implements DisasmView.Host, Session.L
     private void nextCode() {
         if (!need()) return;
         long a = dv.cursorAddr() + 4, st = s.funcEnd.ceilingKey(a) == null ? -1 : s.funcEnd.ceilingKey(a);
-        if (st > 0) { s.jump(st, this); selectTab(1); } else onMessage("Search failed");
+        if (st > 0) { s.jump(st, this); selectTab(0); } else onMessage("Search failed");
     }
 
     private void searchDialog() {
@@ -922,7 +923,7 @@ public class MainActivity extends Activity implements DisasmView.Host, Session.L
             final long hit = found;
             runOnUiThread(new Runnable() { public void run() {
                 pd.dismiss();
-                if (hit >= 0) { s.jump(hit, MainActivity.this); selectTab(1); dv.setHighlight(needle); log("Found \"" + needle + "\" at " + s.segName(hit) + ":" + Fmt.hex16(hit)); }
+                if (hit >= 0) { s.jump(hit, MainActivity.this); selectTab(0); dv.setHighlight(needle); log("Found \"" + needle + "\" at " + s.segName(hit) + ":" + Fmt.hex16(hit)); }
                 else if (!searchCancel) { onMessage("Search failed"); log("Search failed: \"" + needle + "\" not found"); }
             }});
         }}).start();
@@ -943,14 +944,14 @@ public class MainActivity extends Activity implements DisasmView.Host, Session.L
     // ---- keys / back -------------------------------------------------------------------------
 
     @Override public boolean onKeyDown(int code, KeyEvent e) {
-        if (code == KeyEvent.KEYCODE_G && e.isCtrlPressed() == false && curTab == 1 && !(getCurrentFocus() instanceof EditText)) { jumpDialog(); return true; }
-        if (code == KeyEvent.KEYCODE_X && curTab == 1 && !(getCurrentFocus() instanceof EditText)) { xrefsHere(); return true; }
+        if (code == KeyEvent.KEYCODE_G && e.isCtrlPressed() == false && curTab == 0 && !(getCurrentFocus() instanceof EditText)) { jumpDialog(); return true; }
+        if (code == KeyEvent.KEYCODE_X && curTab == 0 && !(getCurrentFocus() instanceof EditText)) { xrefsHere(); return true; }
         if (code == KeyEvent.KEYCODE_ESCAPE) { s.back(this); return true; }
         return super.onKeyDown(code, e);
     }
 
     @Override public void onBackPressed() {
-        if (curTab != 1) { selectTab(1); return; }
+        if (curTab != 0) { selectTab(0); return; }
         if (s.canBack()) { s.back(this); return; }
         super.onBackPressed();
     }

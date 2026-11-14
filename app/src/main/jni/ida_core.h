@@ -92,6 +92,7 @@ public:
     std::vector<std::string> disasm(uint64_t addr, int count) const;
     std::vector<std::string> xrefsTo(uint64_t addr) const;
 private:
+    std::string targetName(uint64_t t, const std::string& mnem) const;
     std::string resolveOps(const Insn& in) const;
     std::string xrefText(uint64_t a, bool code) const;
     std::map<uint64_t, std::string> gotNames;
